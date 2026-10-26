@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../models/student_profile.dart';
+import '../../services/student_service.dart';
+import '../explore/explore_screen.dart';
 import 'interests_screen.dart';
 import 'pathways_screen.dart';
 import 'results_screen.dart';
@@ -7,6 +10,7 @@ import 'results_screen.dart';
 class ProfileReviewScreen extends StatelessWidget {
   const ProfileReviewScreen({
     super.key,
+    this.profile = const StudentProfile(),
     required this.selectedInterests,
     required this.selectedPathways,
     required this.location,
@@ -14,6 +18,7 @@ class ProfileReviewScreen extends StatelessWidget {
     required this.fundingNeed,
   });
 
+  final StudentProfile profile;
   static const Color purple = Color(0xFF59329B);
   static const Color ink = Color(0xFF1E1E2A);
   static const Color muted = Color(0xFF777480);
@@ -82,8 +87,10 @@ class ProfileReviewScreen extends StatelessWidget {
                         const SizedBox(height: 20),
                         _buildSectionHeader(
                           'Matric results',
-                          onEdit: () =>
-                              _open(context, const ProfileResultsScreen()),
+                          onEdit: () => _open(
+                            context,
+                            ProfileResultsScreen(profile: profile),
+                          ),
                         ),
                         const SizedBox(height: 10),
                         const Text(
@@ -98,12 +105,11 @@ class ProfileReviewScreen extends StatelessWidget {
                         const SizedBox(height: 8),
                         _buildApsChip(),
                         const SizedBox(height: 10),
-                        const Text(
-                          'English HL 65% · IsiZulu HL 72%\n'
-                          'Mathematics 68% · Physical Sciences 61%\n'
-                          'Life Sciences 70% · Geography 66%\n'
-                          'Life Orientation 78% (excluded from APS)',
-                          style: TextStyle(
+                        Text(
+                          profile.matricSubjects.entries
+                              .map((entry) => '${entry.key} ${entry.value}%')
+                              .join(' · '),
+                          style: const TextStyle(
                             fontSize: 12,
                             color: muted,
                             height: 1.55,
@@ -111,7 +117,7 @@ class ProfileReviewScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 10),
                         const Text(
-                          'Six-subject NSC estimate. APS scoring and subject requirements vary by institution.',
+                          'Six-subject estimate: APS rules and subject requirements vary by institution.',
                           style: TextStyle(
                             fontSize: 12,
                             color: muted,
@@ -124,6 +130,7 @@ class ProfileReviewScreen extends StatelessWidget {
                           onEdit: () => _open(
                             context,
                             ProfileInterestsScreen(
+                              profile: profile,
                               selectedInterests: selectedInterests,
                             ),
                           ),
@@ -161,6 +168,7 @@ class ProfileReviewScreen extends StatelessWidget {
                           onEdit: () => _open(
                             context,
                             ProfilePathwaysScreen(
+                              profile: profile,
                               selectedInterests: selectedInterests,
                               selectedPathways: selectedPathways,
                               location: location,
@@ -211,7 +219,8 @@ class ProfileReviewScreen extends StatelessWidget {
                         SizedBox(
                           width: double.infinity,
                           child: OutlinedButton.icon(
-                            onPressed: () => _completeProfile(context),
+                            onPressed: () =>
+                                _completeProfile(context, openExplore: true),
                             icon: const Text('Find My Opportunities'),
                             label: const Icon(
                               Icons.arrow_forward_rounded,
@@ -268,12 +277,12 @@ class ProfileReviewScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Thando Dlamini',
+                  profile.fullName.isEmpty ? 'Your profile' : profile.fullName,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -282,7 +291,7 @@ class ProfileReviewScreen extends StatelessWidget {
                 ),
                 SizedBox(height: 4),
                 Text(
-                  'Durban, KwaZulu-Natal · Matric 2025',
+                  '${profile.town}, ${profile.province} · Matric ${profile.matricYear}',
                   style: TextStyle(fontSize: 12, color: muted),
                 ),
               ],
@@ -332,9 +341,9 @@ class ProfileReviewScreen extends StatelessWidget {
           color: const Color(0xFFE9F6F3),
           borderRadius: BorderRadius.circular(16),
         ),
-        child: const Text(
-          '32 / 42',
-          style: TextStyle(
+        child: Text(
+          '${profile.estimatedAps} / 42',
+          style: const TextStyle(
             color: Color(0xFF168C8B),
             fontSize: 12,
             fontWeight: FontWeight.w700,
@@ -405,15 +414,29 @@ class ProfileReviewScreen extends StatelessWidget {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
   }
 
-  void _completeProfile(BuildContext context) {
-    final messenger = ScaffoldMessenger.of(context);
-    Navigator.of(context).popUntil((route) => route.isFirst);
-    messenger.showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Your profile is complete. Opportunity matching is next.',
-        ),
-      ),
-    );
+  Future<void> _completeProfile(
+    BuildContext context, {
+    bool openExplore = false,
+  }) async {
+    try {
+      await StudentService().saveProfile(profile);
+      if (!context.mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.of(context).popUntil((route) => route.isFirst);
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Your profile was saved.')),
+      );
+      if (openExplore && context.mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const ExploreScreen()),
+        );
+      }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not save your profile: $error')),
+        );
+      }
+    }
   }
 }

@@ -1,24 +1,23 @@
 import 'package:flutter/material.dart';
 
+import '../../models/student_profile.dart';
 import 'profile_review_screen.dart';
 
 class ProfilePathwaysScreen extends StatefulWidget {
   const ProfilePathwaysScreen({
     super.key,
-    this.selectedInterests = const {'Technology', 'Engineering'},
-    this.selectedPathways = const {
-      'Study',
-      'Bursaries and funding',
-      'Learnerships and apprenticeships',
-    },
-    this.location = 'KwaZulu-Natal',
-    this.showRemote = true,
+    this.profile = const StudentProfile(),
+    this.selectedInterests = const {},
+    this.selectedPathways = const {},
+    this.location,
+    this.showRemote = false,
     this.fundingNeed = 'Tuition, books & transport',
   });
 
+  final StudentProfile profile;
   final Set<String> selectedInterests;
   final Set<String> selectedPathways;
-  final String location;
+  final String? location;
   final bool showRemote;
   final String fundingNeed;
 
@@ -41,8 +40,13 @@ class _ProfilePathwaysScreenState extends State<ProfilePathwaysScreen> {
     'Study and work',
   ];
 
-  late final Set<String> _selectedPathways = {...widget.selectedPathways};
-  late String _location = widget.location;
+  late final Set<String> _selectedPathways = {
+    ...(widget.selectedPathways.isNotEmpty
+        ? widget.selectedPathways
+        : widget.profile.pathways.toSet()),
+  };
+  late String _location = widget.location ?? widget.profile.province;
+  late String _primaryGoal = widget.profile.primaryGoal;
   late bool _showRemote = widget.showRemote;
   late String _fundingNeed = widget.fundingNeed;
 
@@ -87,6 +91,34 @@ class _ProfilePathwaysScreenState extends State<ProfilePathwaysScreen> {
                             fontWeight: FontWeight.w800,
                             color: ink,
                           ),
+                        ),
+                        const SizedBox(height: 18),
+                        const Text(
+                          'What is your primary goal right now?',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: ink,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        _buildDropdown(
+                          value: _primaryGoal == 'work'
+                              ? 'Work, a short course or a gap year'
+                              : 'Study further',
+                          items: const [
+                            'Study further',
+                            'Work, a short course or a gap year',
+                          ],
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(
+                                () => _primaryGoal = value == 'Study further'
+                                    ? 'study'
+                                    : 'work',
+                              );
+                            }
+                          },
                         ),
                         const SizedBox(height: 10),
                         const Text(
@@ -375,9 +407,24 @@ class _ProfilePathwaysScreenState extends State<ProfilePathwaysScreen> {
   }
 
   void _reviewProfile() {
+    if (_selectedPathways.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Choose at least one route to continue.')),
+      );
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ProfileReviewScreen(
+          profile: widget.profile.copyWith(
+            interests: widget.selectedInterests.toList(),
+            pathways: _selectedPathways.toList(),
+            province: _location,
+            willingToRelocate: _showRemote,
+            needsFunding: _fundingNeed != 'No funding needed',
+            fundingNeed: _fundingNeed,
+            primaryGoal: _primaryGoal,
+          ),
           selectedInterests: widget.selectedInterests,
           selectedPathways: _selectedPathways,
           location: _location,

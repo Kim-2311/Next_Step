@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 
+import '../../models/student_profile.dart';
 import 'pathways_screen.dart';
 
 class ProfileInterestsScreen extends StatefulWidget {
   const ProfileInterestsScreen({
     super.key,
-    this.selectedInterests = const {'Technology', 'Engineering'},
+    this.profile = const StudentProfile(),
+    this.selectedInterests,
   });
 
-  final Set<String> selectedInterests;
+  final StudentProfile profile;
+  final Set<String>? selectedInterests;
 
   @override
   State<ProfileInterestsScreen> createState() => _ProfileInterestsScreenState();
@@ -29,7 +32,9 @@ class _ProfileInterestsScreenState extends State<ProfileInterestsScreen> {
     'Science and Environment',
   ];
 
-  late final Set<String> _selected = {...widget.selectedInterests};
+  late final Set<String> _selected = {
+    ...(widget.selectedInterests ?? widget.profile.interests.toSet()),
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -216,6 +221,9 @@ class _ProfileInterestsScreenState extends State<ProfileInterestsScreen> {
                                 MaterialPageRoute(
                                   builder: (_) => ProfilePathwaysScreen(
                                     selectedInterests: _selected,
+                                    profile: widget.profile.copyWith(
+                                      interests: _selected.toList(),
+                                    ),
                                   ),
                                 ),
                               );

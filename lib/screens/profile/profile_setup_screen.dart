@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../models/student_profile.dart';
+import '../../services/student_service.dart';
 import 'results_screen.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
@@ -15,17 +17,57 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   static const Color ink = Color(0xFF1E1E2A);
   static const Color muted = Color(0xFF6D6D78);
 
-  final _cityController = TextEditingController(text: 'Durban');
-  final _schoolController = TextEditingController(text: 'Example Secondary School');
+  final _fullNameController = TextEditingController();
+  final _cityController = TextEditingController();
 
   String _province = 'KwaZulu-Natal';
   String _matricYear = '2025';
   String _educationStatus = 'Matric completed';
+  bool _willingToRelocate = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadExistingProfile();
+  }
+
+  Future<void> _loadExistingProfile() async {
+    try {
+      final profile = await StudentService().loadProfile();
+      if (!mounted || profile == null) return;
+      setState(() {
+        _fullNameController.text = profile.fullName;
+        _cityController.text = profile.town;
+        if ([
+          'KwaZulu-Natal',
+          'Gauteng',
+          'Western Cape',
+          'Eastern Cape',
+          'Free State',
+          'Limpopo',
+          'Mpumalanga',
+          'Northern Cape',
+          'North West',
+        ].contains(profile.province)) {
+          _province = profile.province;
+        }
+        _matricYear = profile.matricYear;
+        _educationStatus = profile.educationStatus;
+        _willingToRelocate = profile.willingToRelocate;
+      });
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not load your saved profile: $error')),
+        );
+      }
+    }
+  }
 
   @override
   void dispose() {
     _cityController.dispose();
-    _schoolController.dispose();
+    _fullNameController.dispose();
     super.dispose();
   }
 
@@ -121,6 +163,16 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                           ),
                         ),
                         const SizedBox(height: 22),
+                        _buildFieldLabel('Full name'),
+                        _buildTextField(
+                          controller: _fullNameController,
+                          suffixIcon: const Icon(
+                            Icons.person_outline_rounded,
+                            size: 18,
+                            color: purple,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
                         _buildFieldLabel('City or town'),
                         _buildTextField(
                           controller: _cityController,
@@ -130,14 +182,18 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         _buildFieldLabel('Province'),
                         _buildDropdown(
                           value: _province,
-                          items: const ['KwaZulu-Natal', 'Gauteng', 'Western Cape', 'Eastern Cape'],
+                          items: const [
+                            'KwaZulu-Natal',
+                            'Eastern Cape',
+                            'Free State',
+                            'Gauteng',
+                            'Limpopo',
+                            'Mpumalanga',
+                            'Northern Cape',
+                            'North West',
+                            'Western Cape',
+                          ],
                           onChanged: (value) => setState(() => _province = value ?? _province),
-                        ),
-                        const SizedBox(height: 12),
-                        _buildFieldLabel('School (optional)'),
-                        _buildTextField(
-                          controller: _schoolController,
-                          suffixIcon: const Icon(Icons.school_outlined, size: 18, color: purple),
                         ),
                         const SizedBox(height: 12),
                         _buildFieldLabel('Matric completion year'),
@@ -153,7 +209,18 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                           items: const ['Matric completed', 'Still in matric', 'Completed tertiary', 'Working full time'],
                           onChanged: (value) => setState(() => _educationStatus = value ?? _educationStatus),
                         ),
-                        const SizedBox(height: 26),
+                        const SizedBox(height: 12),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Open to relocating'),
+                          subtitle: const Text(
+                            'Include options outside your home province.',
+                          ),
+                          value: _willingToRelocate,
+                          onChanged: (value) =>
+                              setState(() => _willingToRelocate = value),
+                        ),
+                        const SizedBox(height: 12),
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
@@ -173,25 +240,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 12),
-                              Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: purple,
-                                  borderRadius: BorderRadius.circular(18),
-                                ),
-                                child: const Center(
-                                  child: Text(
-                                    'Kim',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                              ),
                             ],
                           ),
                         ),
@@ -200,9 +248,30 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                           width: double.infinity,
                           child: ElevatedButton(
                             onPressed: () {
+                              if (_fullNameController.text.trim().isEmpty ||
+                                  _cityController.text.trim().isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Enter your name and city or town to continue.',
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
+                              final profile = StudentProfile(
+                                fullName: _fullNameController.text.trim(),
+                                town: _cityController.text.trim(),
+                                province: _province,
+                                matricYear: _matricYear,
+                                educationStatus: _educationStatus,
+                                willingToRelocate: _willingToRelocate,
+                              );
                               Navigator.of(context).push(
                                 MaterialPageRoute(
-                                  builder: (_) => const ProfileResultsScreen(),
+                                  builder: (_) => ProfileResultsScreen(
+                                    profile: profile,
+                                  ),
                                 ),
                               );
                             },

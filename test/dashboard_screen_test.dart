@@ -1,8 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_core_platform_interface/test.dart';
 import 'package:next_step/screens/dashboard/dashboard_screen.dart';
 
 void main() {
+  setUpAll(() async {
+    setupFirebaseCoreMocks();
+    await Firebase.initializeApp(
+      options: const FirebaseOptions(
+        apiKey: '123',
+        appId: '123',
+        messagingSenderId: '123',
+        projectId: '123',
+      ),
+    );
+  });
+
   testWidgets('dashboard content scrolls while bottom navigation stays fixed', (
     tester,
   ) async {

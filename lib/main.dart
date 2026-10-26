@@ -1,4 +1,5 @@
 
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -6,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 import 'screens/auth_screen.dart';
 import 'screens/dashboard/dashboard_screen.dart';
+import 'screens/onboarding/welcome_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -47,20 +49,53 @@ class NextStepApp extends StatelessWidget {
   }
 }
 
-class AuthGate extends StatelessWidget {
+class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
   @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  static const _welcomeKey = 'seenWelcome';
+  bool? _seenWelcome;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWelcomeFlag();
+  }
+
+  Future<void> _loadWelcomeFlag() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() => _seenWelcome = prefs.getBool(_welcomeKey) ?? false);
+  }
+
+  Future<void> _finishWelcome() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_welcomeKey, true);
+    if (!mounted) return;
+    setState(() => _seenWelcome = true);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_seenWelcome == null) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(color: NextStepApp.purple),
+        ),
+      );
+    }
+
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(
-              child: CircularProgressIndicator(
-                color: NextStepApp.purple,
-              ),
+              child: CircularProgressIndicator(color: NextStepApp.purple),
             ),
           );
         }
@@ -80,10 +115,17 @@ class AuthGate extends StatelessWidget {
           );
         }
 
+        // Signed in: go straight to the app
         if (snapshot.data != null) {
           return const DashboardScreen();
         }
 
+        // Signed out and has not seen the welcome screens yet
+        if (!_seenWelcome!) {
+          return WelcomeScreen(onFinished: _finishWelcome);
+        }
+
+        // Signed out, welcome already seen
         return const AuthScreen();
       },
     );

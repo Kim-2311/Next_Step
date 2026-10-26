@@ -1,30 +1,70 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:next_step/main.dart';
+import 'package:next_step/models/application_record.dart';
+import 'package:next_step/models/student_profile.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const NextStepApp());
+  group('StudentProfile', () {
+    test('estimates APS from six subjects and excludes Life Orientation', () {
+      const profile = StudentProfile(
+        matricSubjects: {
+          'English': 85,
+          'Mathematics': 74,
+          'Life Orientation': 100,
+          'Physical Sciences': 66,
+          'Life Sciences': 57,
+          'History': 45,
+          'Geography': 33,
+          'Additional subject': 100,
+        },
+      );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+      expect(profile.estimatedAps, 27);
+    });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    test('round-trips profile values through its persistence map', () {
+      const profile = StudentProfile(
+        fullName: 'Sam Example',
+        province: 'Gauteng',
+        primaryGoal: 'work',
+        willingToRelocate: true,
+        interests: ['Technology'],
+        pathways: ['Find a job'],
+        matricSubjects: {'Mathematics': 72},
+      );
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+      final restored = StudentProfile.fromMap(profile.toMap());
+
+      expect(restored.fullName, profile.fullName);
+      expect(restored.province, profile.province);
+      expect(restored.primaryGoal, profile.primaryGoal);
+      expect(restored.willingToRelocate, isTrue);
+      expect(restored.interests, profile.interests);
+      expect(restored.pathways, profile.pathways);
+      expect(restored.matricSubjects, profile.matricSubjects);
+    });
+  });
+
+  test('offers Plan B after rejection or waitlisting', () {
+    expect(
+      const ApplicationRecord(
+        opportunityId: 'example',
+        status: 'Rejected',
+      ).shouldOfferPlanB,
+      isTrue,
+    );
+    expect(
+      const ApplicationRecord(
+        opportunityId: 'example',
+        status: 'Waitlisted',
+      ).shouldOfferPlanB,
+      isTrue,
+    );
+    expect(
+      const ApplicationRecord(
+        opportunityId: 'example',
+        status: 'Applied',
+      ).shouldOfferPlanB,
+      isFalse,
+    );
   });
 }

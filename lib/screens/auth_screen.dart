@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 
 class AuthScreen extends StatefulWidget {
-  const AuthScreen({super.key});
+  const AuthScreen({super.key, this.startInRegisterMode = false});
+
+  final bool startInRegisterMode;
 
   @override
   State<AuthScreen> createState() => _AuthScreenState();
@@ -22,10 +24,11 @@ class _AuthScreenState extends State<AuthScreen> {
 
   final AuthService _authService = AuthService();
 
-  bool _isLogin = true;
+  late bool _isLogin = !widget.startInRegisterMode;
   bool _isLoading = false;
   bool _showPassword = false;
   bool _showConfirmPassword = false;
+  bool _acceptedTerms = false;
 
   @override
   void dispose() {
@@ -47,6 +50,14 @@ class _AuthScreenState extends State<AuthScreen> {
           password: _passwordController.text,
         );
       } else {
+        if (!_acceptedTerms) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please agree to the Terms of Use and Privacy Policy.'),
+            ),
+          );
+          return;
+        }
         await _authService.register(
           email: _emailController.text.trim(),
           password: _passwordController.text,
@@ -160,8 +171,13 @@ class _AuthScreenState extends State<AuthScreen> {
       return 'Password is required.';
     }
 
-    if (!_isLogin && value.length < 6) {
-      return 'Password must be at least 6 characters.';
+    if (!_isLogin && value.length < 8) {
+      return 'Password must be at least 8 characters.';
+    }
+    if (!_isLogin &&
+        (!RegExp(r'\d').hasMatch(value) ||
+            !RegExp(r'[^A-Za-z0-9]').hasMatch(value))) {
+      return 'Use at least one number and one symbol.';
     }
 
     return null;
@@ -185,6 +201,7 @@ class _AuthScreenState extends State<AuthScreen> {
       _formKey.currentState?.reset();
       _passwordController.clear();
       _confirmPasswordController.clear();
+      _acceptedTerms = false;
     });
   }
 
@@ -358,6 +375,23 @@ class _AuthScreenState extends State<AuthScreen> {
                             },
                           ),
                         ),
+                      ),
+                      CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: _acceptedTerms,
+                        onChanged: _isLoading
+                            ? null
+                            : (value) => setState(
+                                () => _acceptedTerms = value ?? false,
+                              ),
+                        title: const Text(
+                          'I agree to the Terms of Use and Privacy Policy.',
+                        ),
+                        controlAffinity: ListTileControlAffinity.leading,
+                      ),
+                      const Text(
+                        'Your results are private. You choose what to share.',
+                        style: TextStyle(color: Colors.black54, fontSize: 13),
                       ),
                     ],
 

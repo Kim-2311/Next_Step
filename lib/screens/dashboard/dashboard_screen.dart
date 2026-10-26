@@ -1,8 +1,17 @@
 import 'package:flutter/material.dart';
 
+import '../../models/opportunity.dart';
+import '../../models/student_profile.dart';
 import '../../services/auth_service.dart';
-import '../explore/explore_screen.dart';
-import '../profile/profile_screen.dart';
+import '../../services/opportunity_service.dart';
+import '../../services/student_service.dart';
+import '../navigation/app_navigation.dart';
+import '../applications/application_tracker_screen.dart';
+import '../apply_assist/apply_assist_screen.dart';
+import '../explore/opportunity_details_screen.dart';
+import '../notifications/deadlines_screen.dart';
+import '../profile/profile_settings_screen.dart';
+import '../plan_b/plan_b_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -33,15 +42,7 @@ class DashboardScreen extends StatelessWidget {
                   children: [
                     _buildTopRow(context),
                     const SizedBox(height: 26),
-                    const Text(
-                      'Hi, Thando!',
-                      style: TextStyle(
-                        color: ink,
-                        fontSize: 28,
-                        fontWeight: FontWeight.w700,
-                        height: 1.2,
-                      ),
-                    ),
+                    _buildGreeting(),
                     const SizedBox(height: 8),
                     const Text(
                       'My Next Step · A little direction for your next chapter.',
@@ -50,23 +51,7 @@ class DashboardScreen extends StatelessWidget {
                     const SizedBox(height: 22),
                     _buildProfileCard(context),
                     const SizedBox(height: 22),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildStatCard(
-                            value: '8',
-                            label: 'Relevant examples',
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildStatCard(
-                            value: '2',
-                            label: 'Closing soon',
-                          ),
-                        ),
-                      ],
-                    ),
+                    _buildDashboardStats(),
                     const SizedBox(height: 20),
                     const Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -100,13 +85,15 @@ class DashboardScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     _buildNextActionCard(context),
+                    const SizedBox(height: 14),
+                    _buildPlanBCard(context),
                     const SizedBox(height: 24),
                     _buildSectionHeader(
                       'Closing soon',
                       actionLabel: 'View alerts',
-                      onAction: () => _showMessage(
+                      onAction: () => AppNavigation.open<void>(
                         context,
-                        'Closing date reminders will appear here.',
+                        const DeadlinesScreen(),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -123,10 +110,7 @@ class DashboardScreen extends StatelessWidget {
                     _buildSectionHeader(
                       'Picked for your interests',
                       actionLabel: 'Explore all 8',
-                      onAction: () => _showMessage(
-                        context,
-                        'Opportunity exploration is coming soon.',
-                      ),
+                      onAction: () => AppNavigation.openExplore<void>(context),
                     ),
                     const SizedBox(height: 12),
                     _buildOpportunityCard(
@@ -151,10 +135,7 @@ class DashboardScreen extends StatelessWidget {
                     _buildSectionHeader(
                       'Recently saved',
                       actionLabel: 'View all 3',
-                      onAction: () => _showMessage(
-                        context,
-                        'Your saved opportunities will appear here.',
-                      ),
+                      onAction: () => AppNavigation.openSaved<void>(context),
                     ),
                     const SizedBox(height: 12),
                     _buildRecentlySavedCard(context),
@@ -175,6 +156,161 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildPlanBCard(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: lavender,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'THERE’S MORE THAN ONE WAY',
+            style: TextStyle(
+              color: purple,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Make room for Plan B.',
+            style: TextStyle(
+              color: ink,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Explore alternatives if your first plan changes.',
+            style: TextStyle(color: muted, fontSize: 13, height: 1.5),
+          ),
+          TextButton(
+            onPressed: () => AppNavigation.open<void>(
+              context,
+              const PlanBScreen(),
+            ),
+            child: const Text('Build my Plan B →'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGreeting() => FutureBuilder<StudentProfile?>(
+    future: StudentService().loadProfile(),
+    builder: (context, snapshot) {
+      final name = snapshot.data?.fullName.trim();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Hi, ${name?.isNotEmpty == true ? name!.split(' ').first : 'there'}!',
+            style: const TextStyle(
+              color: ink,
+              fontSize: 28,
+              fontWeight: FontWeight.w700,
+              height: 1.2,
+            ),
+          ),
+          if (snapshot.hasError)
+            Text(
+              'Profile details could not be loaded: ${snapshot.error}',
+              style: const TextStyle(color: Colors.red, fontSize: 12),
+            ),
+        ],
+      );
+    },
+  );
+
+  Widget _buildDashboardStats() => FutureBuilder<(int, int)>(
+    future: _loadDashboardStats(),
+    builder: (context, snapshot) {
+      final counts = snapshot.data;
+      if (snapshot.hasError) {
+        return Text(
+          'Your saved summary could not be loaded: ${snapshot.error}',
+          style: const TextStyle(color: Colors.red, fontSize: 12),
+        );
+      }
+      return Row(
+        children: [
+          Expanded(
+            child: _buildStatCard(
+              value: counts == null ? '…' : '${counts.$1}',
+              label: 'Saved opportunities',
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildStatCard(
+              value: counts == null ? '…' : '${counts.$2}',
+              label: 'Closing soon',
+            ),
+          ),
+        ],
+      );
+    },
+  );
+
+  Future<(int, int)> _loadDashboardStats() async {
+    final ids = await StudentService().getSavedOpportunityIds();
+    final now = DateTime.now();
+    final upcoming = OpportunityService.sampleOpportunities.where((item) {
+      final days = item.closingDate.difference(now).inDays;
+      return ids.contains(item.id) && days >= 0 && days <= 30;
+    }).length;
+    return (ids.length, upcoming);
+  }
+
+  void _openOpportunity(BuildContext context, String title) {
+    final matches = OpportunityService.sampleOpportunities.where(
+      (item) => item.title == title,
+    );
+    if (matches.isEmpty) {
+      _showMessage(context, 'This opportunity is not available.');
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => OpportunityDetailsScreen(opportunity: matches.first),
+      ),
+    );
+  }
+
+  Future<void> _toggleOpportunitySaved(
+    BuildContext context,
+    String title,
+  ) async {
+    final matches = OpportunityService.sampleOpportunities.where(
+      (item) => item.title == title,
+    );
+    if (matches.isEmpty) {
+      _showMessage(context, 'This opportunity is not available.');
+      return;
+    }
+    try {
+      final item = matches.first;
+      final savedIds = await StudentService().getSavedOpportunityIds();
+      final saved = savedIds.contains(item.id);
+      await StudentService().setOpportunitySaved(item.id, !saved);
+      if (context.mounted) {
+        _showMessage(
+          context,
+          saved ? 'Removed from your saved opportunities.' : 'Saved for later.',
+        );
+      }
+    } catch (error) {
+      if (context.mounted) {
+        _showMessage(context, 'Could not update saved items: $error');
+      }
+    }
+  }
+
   Widget _buildTopRow(BuildContext context) {
     return Row(
       children: [
@@ -192,8 +328,10 @@ class DashboardScreen extends StatelessWidget {
         IconButton(
           tooltip: 'Notifications',
           visualDensity: VisualDensity.compact,
-          onPressed: () =>
-              _showMessage(context, 'You’re all caught up on notifications.'),
+          onPressed: () => AppNavigation.open<void>(
+            context,
+            const DeadlinesScreen(),
+          ),
           icon: const Icon(
             Icons.notifications_none_rounded,
             color: purple,
@@ -206,82 +344,123 @@ class DashboardScreen extends StatelessWidget {
           onSelected: (value) async {
             if (value == 'sign_out') {
               await AuthService().logout();
+            } else if (value == 'plan_b' && context.mounted) {
+              await AppNavigation.open<void>(context, const PlanBScreen());
             }
           },
           itemBuilder: (context) => const [
             PopupMenuItem(value: 'sign_out', child: Text('Sign out')),
+            PopupMenuItem(value: 'plan_b', child: Text('Explore Plan B')),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildProfileCard(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(22, 20, 22, 20),
-      decoration: BoxDecoration(
-        color: purple,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x33000000),
-            blurRadius: 5,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'YOUR PROFILE',
-                  style: TextStyle(
-                    color: Color(0xFFE0D5F5),
-                    fontSize: 11,
+  Widget _buildProfileCard(BuildContext context) =>
+      FutureBuilder<StudentProfile?>(
+        future: StudentService().loadProfile(),
+        builder: (context, snapshot) {
+          final profile = snapshot.data;
+          final isComplete =
+              profile != null &&
+              profile.fullName.isNotEmpty &&
+              profile.town.isNotEmpty &&
+              profile.interests.isNotEmpty &&
+              profile.pathways.isNotEmpty &&
+              profile.matricSubjects.length >= 6;
+          final progress = profile == null
+              ? 0.0
+              : [
+                      profile.fullName.isNotEmpty,
+                      profile.town.isNotEmpty,
+                      profile.interests.isNotEmpty,
+                      profile.pathways.isNotEmpty,
+                      profile.matricSubjects.length >= 6,
+                    ]
+                    .where((complete) => complete)
+                    .length /
+                    5;
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(22, 20, 22, 20),
+            decoration: BoxDecoration(
+              color: purple,
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'YOUR PROFILE',
+                        style: TextStyle(
+                          color: Color(0xFFE0D5F5),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      isComplete
+                          ? Icons.check_circle_rounded
+                          : Icons.edit_note_rounded,
+                      color: teal,
+                      size: 20,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  isComplete
+                      ? 'You’ve done the work.\nNow explore what’s next.'
+                      : 'Start with a few details.\nYour next step is yours.',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 23,
+                    height: 1.2,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-              ),
-              const Icon(
-                Icons.check_circle_outline_rounded,
-                color: teal,
-                size: 20,
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          const Text(
-            'You’ve done the work.\nNow explore what’s\nnext.',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 25,
-              height: 1.23,
-              fontWeight: FontWeight.w700,
+                const SizedBox(height: 16),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 5,
+                    backgroundColor: const Color(0xFF785BB0),
+                    valueColor: const AlwaysStoppedAnimation<Color>(teal),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  snapshot.hasError
+                      ? 'Profile status could not be loaded: ${snapshot.error}'
+                      : '${(progress * 100).round()}% complete'
+                          '${profile == null ? '' : ' · APS estimate ${profile.estimatedAps}'}',
+                  style: const TextStyle(
+                    color: Color(0xFFE4DCF2),
+                    fontSize: 12,
+                  ),
+                ),
+                if (!isComplete)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => AppNavigation.openProfile<void>(context),
+                      child: const Text(
+                        'Complete my profile →',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ),
+              ],
             ),
-          ),
-          const SizedBox(height: 16),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: const LinearProgressIndicator(
-              value: 1,
-              minHeight: 5,
-              backgroundColor: Color(0xFF785BB0),
-              valueColor: AlwaysStoppedAnimation<Color>(teal),
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            '100% complete · APS estimate 32',
-            style: TextStyle(color: Color(0xFFE4DCF2), fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
+          );
+        },
+      );
 
   Widget _buildStatCard({required String value, required String label}) {
     return Container(
@@ -365,9 +544,10 @@ class DashboardScreen extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: () => _showMessage(
-                context,
-                'Application preparation is coming soon.',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const ApplyAssistScreen(),
+                ),
               ),
               iconAlignment: IconAlignment.end,
               icon: const Icon(Icons.arrow_forward_rounded, size: 19),
@@ -466,10 +646,7 @@ class DashboardScreen extends StatelessWidget {
               ),
               IconButton(
                 tooltip: 'Save $title',
-                onPressed: () => _showMessage(
-                  context,
-                  'Saving opportunities is coming soon.',
-                ),
+                onPressed: () => _toggleOpportunitySaved(context, title),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
                 icon: const Icon(
@@ -531,10 +708,7 @@ class DashboardScreen extends StatelessWidget {
               const Spacer(),
               IconButton(
                 tooltip: 'Opportunity example details',
-                onPressed: () => _showMessage(
-                  context,
-                  'This is an illustrative opportunity, not a live opening.',
-                ),
+                onPressed: () => _openOpportunity(context, title),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
                 icon: const Icon(
@@ -551,47 +725,54 @@ class DashboardScreen extends StatelessWidget {
   }
 
   Widget _buildRecentlySavedCard(BuildContext context) {
-    return Material(
-      color: lavender,
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: () => _showMessage(
-          context,
-          'This is an illustrative opportunity, not a live opening.',
-        ),
-        child: const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: [
-              Icon(Icons.bookmark_border_rounded, color: purple, size: 21),
-              SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'IT Support Learnership',
-                      style: TextStyle(
-                        color: ink,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Example Skills Hub · 06 Nov 2026',
-                      style: TextStyle(color: muted, fontSize: 12),
-                    ),
-                  ],
-                ),
+    return FutureBuilder<Opportunity?>(
+      future: _latestSavedOpportunity(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Text(
+            'Saved options could not be loaded: ${snapshot.error}',
+            style: const TextStyle(color: Colors.red, fontSize: 12),
+          );
+        }
+        final item = snapshot.data;
+        if (item == null) {
+          return Material(
+            color: lavender,
+            borderRadius: BorderRadius.circular(18),
+            child: ListTile(
+              leading: const Icon(Icons.bookmark_border_rounded, color: purple),
+              title: const Text('Nothing saved yet'),
+              subtitle: const Text('Explore options and bookmark one to keep it here.'),
+              onTap: () => AppNavigation.openExplore<void>(context),
+            ),
+          );
+        }
+        return Material(
+          color: lavender,
+          borderRadius: BorderRadius.circular(18),
+          child: ListTile(
+            leading: const Icon(Icons.bookmark_rounded, color: purple),
+            title: Text(item.title),
+            subtitle: Text('${item.provider} · ${item.closingDateLabel}'),
+            trailing: const Icon(Icons.chevron_right_rounded, color: purple),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => OpportunityDetailsScreen(opportunity: item),
               ),
-              Icon(Icons.chevron_right_rounded, color: purple, size: 22),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
+  }
+
+  Future<Opportunity?> _latestSavedOpportunity() async {
+    final ids = await StudentService().getSavedOpportunityIds();
+    final items = OpportunityService.sampleOpportunities
+        .where((item) => ids.contains(item.id))
+        .toList()
+      ..sort((a, b) => a.closingDate.compareTo(b.closingDate));
+    return items.isEmpty ? null : items.first;
   }
 
   Widget _buildBottomNavigation(BuildContext context) {
@@ -621,28 +802,22 @@ class DashboardScreen extends StatelessWidget {
                   context,
                   icon: Icons.explore_outlined,
                   label: 'Explore',
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const ExploreScreen(),
-                    ),
-                  ),
+                  onTap: () => AppNavigation.openExplore<void>(context),
                 ),
                 _buildNavItem(
                   context,
                   icon: Icons.bookmark_border_rounded,
                   label: 'Saved',
-                  onTap: () => _showMessage(
-                    context,
-                    'Your saved opportunities will appear here.',
-                  ),
+                  onTap: () => AppNavigation.openSaved<void>(context),
                 ),
                 _buildNavItem(
                   context,
                   icon: Icons.assignment_outlined,
                   label: 'Applications',
-                  onTap: () => _showMessage(
-                    context,
-                    'Application tracking is coming soon.',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const ApplicationTrackerScreen(),
+                    ),
                   ),
                 ),
                 _buildNavItem(
@@ -651,7 +826,7 @@ class DashboardScreen extends StatelessWidget {
                   label: 'Profile',
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => const ProfileSetupScreen(),
+                      builder: (_) => const ProfileSettingsScreen(),
                     ),
                   ),
                 ),
